@@ -91,21 +91,11 @@ def main():
         strategy=strategy,
     )
 
-    data = {}
-
-    for metric_name, values in history.metrics_distributed.items():
-        for rnd, val in values:
-            if rnd not in data:
-                data[rnd] = {}
-            data[rnd][metric_name] = val
-
-    df = pd.DataFrame.from_dict(data, orient="index").reset_index()
-    df = df.rename(columns={"index": "round"})
-    df = df.sort_values("round")
-
-    print("\nDEBUG DATA:")
-    print(df.head())
-
+    # Save history metrics
+    round_metrics = []
+    for rnd, vals in history.metrics_distributed.items():
+        for k, v in vals:
+            round_metrics.append({"round": rnd, "metric": k, "value": v})
     os.makedirs("results", exist_ok=True)
 
     df.to_csv(f"results/{args.algorithm}_metrics.csv", index=False)

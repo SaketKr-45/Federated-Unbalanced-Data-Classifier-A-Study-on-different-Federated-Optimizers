@@ -46,12 +46,18 @@ def run():
         yt = f"predictions/clients/client_{cid}_y_true.npy"
         yp = f"predictions/clients/client_{cid}_y_prob.npy"
 
-        if os.path.exists(yt) and os.path.exists(yp):
-            y_true, y_prob = np.load(yt), np.load(yp)
-            plot_confusion(y_true, y_prob, f"client_{cid}")
-            plot_roc(y_true, y_prob, f"client_{cid}")
-            global_y_true.extend(y_true.flatten().tolist())
-            global_y_prob.extend(y_prob.flatten().tolist())
+        if not os.path.exists(yt) or not os.path.exists(yp):
+            continue
+
+        y_true = np.load(yt)
+        y_prob = np.load(yp)
+
+        plot_confusion(y_true, y_prob, f"client_{cid}")
+        plot_roc(y_true, y_prob, f"client_{cid}")
+
+        # Aggregate for global plot
+        global_y_true.extend(y_true.flatten().tolist())
+        global_y_prob.extend(y_prob.flatten().tolist())
 
     if global_y_true:
         plot_confusion(np.array(global_y_true), np.array(global_y_prob), "global")
