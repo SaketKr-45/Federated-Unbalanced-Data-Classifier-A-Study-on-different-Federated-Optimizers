@@ -66,7 +66,6 @@ def run():
         plot_confusion(y_true, y_prob, f"client_{cid}")
         plot_roc(y_true, y_prob, f"client_{cid}")
 
-        # Aggregate for global plot
         global_y_true.extend(y_true.flatten().tolist())
         global_y_prob.extend(y_prob.flatten().tolist())
 

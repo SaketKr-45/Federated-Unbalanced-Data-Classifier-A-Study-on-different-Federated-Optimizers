@@ -20,7 +20,6 @@ ALGORITHMS = {
 
 
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Metrics aggregation from clients
     num_examples = sum(n for n, _ in metrics)
     if num_examples == 0:
         return {}
@@ -45,7 +44,6 @@ def get_strategy(name: str, rounds: int) -> fl.server.strategy.Strategy:
         fit_metrics_aggregation_fn=weighted_average,
     )
 
-    # Strategy-specific defaults
     if name == "fedprox":
         strategy = StrategyClass(proximal_mu=0.01, **common_kwargs)
     elif name in ("fedadam", "fedadagrad", "fedyogi"):
@@ -82,7 +80,6 @@ def main():
         strategy=strategy,
     )
 
-    # Save history metrics
     round_metrics = []
     for rnd, vals in history.metrics_distributed.items():
         for k, v in vals:

@@ -88,9 +88,6 @@ class FlowerClient(fl.client.NumPyClient):
                 losses.append(loss.item())
                 probs_all.extend(probs.cpu().numpy().flatten().tolist())
 
-        # =========================
-        # SAVE PREDICTIONS (CLIENT ONLY)
-        # =========================
         os.makedirs("predictions/clients", exist_ok=True)
 
         y_true = self.y_test
