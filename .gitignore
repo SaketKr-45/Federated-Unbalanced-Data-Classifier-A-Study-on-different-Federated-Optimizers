@@ -1,0 +1,12 @@
+.venv/
+venv/
+__pycache__/
+*.pyc
+
+predictions/
+results/
+final_plots/
+comparison_plots/
+
+*.npy
+*.pkl
