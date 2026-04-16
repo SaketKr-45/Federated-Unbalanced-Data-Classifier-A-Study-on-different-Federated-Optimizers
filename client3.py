@@ -9,7 +9,7 @@ def main():
     args = parser.parse_args()
 
     set_seed(42)
-    client = FlowerClient(cid="3", dataset_path="dataset_random_split3.csv")
+    client = FlowerClient(cid="3", dataset_path="datasets\\random_split\\dataset_random_split3.csv")
     fl.client.start_numpy_client(server_address=args.server, client=client)
 
 

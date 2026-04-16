@@ -1,5 +1,4 @@
 import os
-import json
 import pandas as pd
 import matplotlib.pyplot as plt
 
@@ -8,37 +7,58 @@ OUT_DIR = "comparison_plots"
 
 os.makedirs(OUT_DIR, exist_ok=True)
 
-METRICS = ["accuracy", "f1", "precision", "recall", "roc_auc"]
+METRICS = ["accuracy", "precision", "recall", "f1", "roc_auc"]
+
+plt.style.use("default")
 
 
 def load_data():
     data = {}
+
     for file in os.listdir(RESULTS_DIR):
-        if file.endswith(".json"):
-            algo = file.replace("_round_metrics.json", "")
-            with open(os.path.join(RESULTS_DIR, file)) as f:
-                df = pd.DataFrame(json.load(f))
-                data[algo] = df
+        if file.endswith("_metrics.csv"):
+            df = pd.read_csv(os.path.join(RESULTS_DIR, file))
+
+            print(f"\nLoaded {file}")
+            print(df.head())
+
+            algo = file.replace("_metrics.csv", "")
+            data[algo] = df
+
     return data
 
 
 def plot(metric, data):
     plt.figure()
 
-    for algo, df in data.items():
-        subset = df[df["metric"] == metric]
+    plotted = False
 
-        if subset.empty:
+    for algo, df in data.items():
+        if metric not in df.columns:
             continue
 
-        subset = subset.sort_values("round")
+        df = df.sort_values("round")
 
-        plt.plot(subset["round"], subset["value"], label=algo.upper())
+        plt.plot(
+            df["round"],
+            df[metric],
+            marker="o",
+            linewidth=2,
+            label=algo.upper()
+        )
+
+        plotted = True
+
+    if not plotted:
+        print(f"[WARNING] No data for {metric}")
+        plt.close()
+        return
 
     plt.legend()
     plt.title(metric.upper())
     plt.xlabel("Rounds")
     plt.ylabel(metric)
+    plt.grid(True)
 
     plt.savefig(f"{OUT_DIR}/{metric}.png")
     plt.close()
@@ -50,7 +70,7 @@ def main():
     for m in METRICS:
         plot(m, data)
 
-    print("Comparison plots saved ✅")
+    print("\nComparison plots saved ✅")
 
 
 if __name__ == "__main__":

@@ -1,13 +1,13 @@
 import argparse
 import os
-from typing import Dict, List, Optional, Tuple
+from typing import List, Tuple
 
 import flwr as fl
-from flwr.common import FitRes, Metrics, Parameters, EvaluateRes
-from flwr.server.client_proxy import ClientProxy
+import pandas as pd
+from flwr.common import Metrics, ndarrays_to_parameters
 
-from evaluation import save_round_metrics_json
-
+from client1 import SimpleModel
+from utils import get_model_parameters, load_and_preprocess
 
 ALGORITHMS = {
     "fedavg": fl.server.strategy.FedAvg,
@@ -19,21 +19,32 @@ ALGORITHMS = {
 }
 
 
+# ✅ Correct aggregation
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
-    # Metrics aggregation from clients
     num_examples = sum(n for n, _ in metrics)
     if num_examples == 0:
         return {}
 
     agg = {}
-    keys = metrics[0][1].keys()
-    for k in keys:
-        agg[k] = sum(n * float(m[k]) for n, m in metrics) / num_examples
+    for n, m in metrics:
+        for k, v in m.items():
+            agg[k] = agg.get(k, 0) + n * float(v)
+
+    for k in agg:
+        agg[k] /= num_examples
+
     return agg
 
 
-def get_strategy(name: str, rounds: int) -> fl.server.strategy.Strategy:
+def get_strategy(name: str):
     StrategyClass = ALGORITHMS[name]
+
+    _, _, _, _, feature_count, _ = load_and_preprocess(
+        "datasets\\random_split\\dataset_random_split1.csv"
+    )
+
+    model = SimpleModel(feature_count)
+    params = ndarrays_to_parameters(get_model_parameters(model))
 
     common_kwargs = dict(
         fraction_fit=1.0,
@@ -43,38 +54,37 @@ def get_strategy(name: str, rounds: int) -> fl.server.strategy.Strategy:
         min_available_clients=4,
         evaluate_metrics_aggregation_fn=weighted_average,
         fit_metrics_aggregation_fn=weighted_average,
+        initial_parameters=params,
     )
 
-    # Strategy-specific defaults
     if name == "fedprox":
-        strategy = StrategyClass(proximal_mu=0.01, **common_kwargs)
+        return StrategyClass(proximal_mu=0.01, **common_kwargs)
     elif name in ("fedadam", "fedadagrad", "fedyogi"):
-        strategy = StrategyClass(
-            eta=1e-2,
-            eta_l=1e-2,
-            beta_1=0.9,
-            beta_2=0.99,
-            tau=1e-9,
-            **common_kwargs,
+        return StrategyClass(
+            eta=1e-2, eta_l=1e-2, beta_1=0.9, beta_2=0.99, tau=1e-9,
+            **common_kwargs
         )
     elif name == "fedavgm":
-        strategy = StrategyClass(server_learning_rate=1.0, server_momentum=0.9, **common_kwargs)
+        return StrategyClass(
+            server_learning_rate=1.0,
+            server_momentum=0.9,
+            **common_kwargs
+        )
     else:
-        strategy = StrategyClass(**common_kwargs)
-
-    return strategy
+        return StrategyClass(**common_kwargs)
 
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--algorithm", type=str, default="fedavg", choices=list(ALGORITHMS.keys()))
-    parser.add_argument("--rounds", type=int, default=10)
+    parser.add_argument("--algorithm", type=str, default="fedavg",
+                        choices=list(ALGORITHMS.keys()))
+    parser.add_argument("--rounds", type=int, default=25)
     parser.add_argument("--address", type=str, default="0.0.0.0:8080")
     args = parser.parse_args()
 
-    print(f"[Server] Starting with algorithm={args.algorithm}, rounds={args.rounds}, address={args.address}")
+    print(f"[Server] Starting {args.algorithm.upper()}...")
 
-    strategy = get_strategy(args.algorithm, args.rounds)
+    strategy = get_strategy(args.algorithm)
 
     history = fl.server.start_server(
         server_address=args.address,
@@ -82,14 +92,40 @@ def main():
         strategy=strategy,
     )
 
-    # Save history metrics
-    round_metrics = []
-    for rnd, vals in history.metrics_distributed.items():
-        for k, v in vals:
-            round_metrics.append({"round": rnd, "metric": k, "value": v})
+    # ==========================================
+    # ✅ CORRECT METRICS FORMAT (FIXED)
+    # ==========================================
+    data = {}
+
+    for metric_name, values in history.metrics_distributed.items():
+        for rnd, val in values:
+            if rnd not in data:
+                data[rnd] = {}
+            data[rnd][metric_name] = val
+
+    df = pd.DataFrame.from_dict(data, orient="index").reset_index()
+    df = df.rename(columns={"index": "round"})
+    df = df.sort_values("round")
+
+    print("\nDEBUG DATA:")
+    print(df.head())
+
     os.makedirs("results", exist_ok=True)
-    save_round_metrics_json(args.algorithm, round_metrics, out_dir="results")
-    print("[Server] Training completed.")
+
+    # ✅ Save full metrics
+    df.to_csv(f"results/{args.algorithm}_metrics.csv", index=False)
+
+    # ✅ Save PRF separately
+    prf_cols = ["round", "precision", "recall", "f1"]
+    prf_df = df.loc[:, df.columns.intersection(prf_cols)]
+    prf_df.to_csv(f"results/{args.algorithm}_prf_metrics.csv", index=False)
+
+    print("\nSaved:")
+    print(f"- results/{args.algorithm}_metrics.csv")
+    print(f"- results/{args.algorithm}_prf_metrics.csv")
+
+    print("\nLast rounds:")
+    print(df.tail())
 
 
 if __name__ == "__main__":
