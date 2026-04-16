@@ -44,31 +44,24 @@ def load_and_preprocess(
 ) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, int, Dict[str, Any]]:
     df = pd.read_csv(csv_path)
 
-    # Basic cleanup
     df = df.drop_duplicates()
 
-    # Expected label
     if "FraudLabel" not in df.columns:
         raise ValueError(f"'FraudLabel' column not found in {csv_path}")
 
-    # Timestamp feature engineering
     if "Timestamp" in df.columns:
         df = _safe_parse_timestamp(df, "Timestamp")
 
-    # Drop high-cardinality IDs if present
     drop_cols = [c for c in ["TransactionID", "CustomerID"] if c in df.columns]
     if drop_cols:
         df = df.drop(columns=drop_cols)
 
-    # Separate target
     y = df["FraudLabel"].astype(int).values
     X = df.drop(columns=["FraudLabel"]).copy()
 
-    # Identify column types
     cat_cols = X.select_dtypes(include=["object", "category"]).columns.tolist()
     num_cols = [c for c in X.columns if c not in cat_cols]
 
-    # Fill missing values
     for c in num_cols:
         X[c] = pd.to_numeric(X[c], errors="coerce")
         X[c] = X[c].fillna(X[c].median() if not X[c].dropna().empty else 0.0)
@@ -76,10 +69,8 @@ def load_and_preprocess(
     for c in cat_cols:
         X[c] = X[c].astype(str).fillna("missing")
 
-    # One-hot encode categories
     X = pd.get_dummies(X, columns=cat_cols, drop_first=False)
 
-    # Train/test split
     stratify = y if len(np.unique(y)) > 1 else None
     X_train, X_test, y_train, y_test = train_test_split(
         X.values,
@@ -89,7 +80,6 @@ def load_and_preprocess(
         stratify=stratify,
     )
 
-    # Scale
     scaler = StandardScaler()
     X_train = scaler.fit_transform(X_train).astype(np.float32)
     X_test = scaler.transform(X_test).astype(np.float32)
@@ -138,7 +128,6 @@ def compute_metrics(y_true: np.ndarray, y_prob: np.ndarray, threshold: float = 0
         "f1": float(f1_score(y_true, y_pred, zero_division=0)),
     }
 
-    # ROC-AUC only valid if both classes exist
     if len(np.unique(y_true)) > 1:
         metrics["roc_auc"] = float(roc_auc_score(y_true, y_prob))
     else:

@@ -19,7 +19,6 @@ ALGORITHMS = {
 }
 
 
-# ✅ Correct aggregation
 def weighted_average(metrics: List[Tuple[int, Metrics]]) -> Metrics:
     num_examples = sum(n for n, _ in metrics)
     if num_examples == 0:
@@ -92,9 +91,6 @@ def main():
         strategy=strategy,
     )
 
-    # ==========================================
-    # ✅ CORRECT METRICS FORMAT (FIXED)
-    # ==========================================
     data = {}
 
     for metric_name, values in history.metrics_distributed.items():
@@ -112,10 +108,8 @@ def main():
 
     os.makedirs("results", exist_ok=True)
 
-    # ✅ Save full metrics
     df.to_csv(f"results/{args.algorithm}_metrics.csv", index=False)
 
-    # ✅ Save PRF separately
     prf_cols = ["round", "precision", "recall", "f1"]
     prf_df = df.loc[:, df.columns.intersection(prf_cols)]
     prf_df.to_csv(f"results/{args.algorithm}_prf_metrics.csv", index=False)

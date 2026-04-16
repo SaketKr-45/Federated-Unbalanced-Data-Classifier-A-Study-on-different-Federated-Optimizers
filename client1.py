@@ -51,7 +51,7 @@ class FlowerClient(fl.client.NumPyClient):
         self.test_loader = DataLoader(make_torch_dataset(X_test, y_test), batch_size=32, shuffle=False)
 
         self.model = SimpleModel(feature_count).to(self.device)
-        pos_weight = torch.tensor([3.0]).to(self.device)  # tune between 2–10
+        pos_weight = torch.tensor([3.0]).to(self.device) 
         self.criterion = nn.BCEWithLogitsLoss(pos_weight=pos_weight)
 
     def get_parameters(self, config):

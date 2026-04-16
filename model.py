@@ -12,7 +12,7 @@ class MLP(nn.Module):
             nn.Linear(64, 32),
             nn.ReLU(),
             nn.Dropout(0.2),
-            nn.Linear(32, 1),  # binary logit output
+            nn.Linear(32, 1), 
         )
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
